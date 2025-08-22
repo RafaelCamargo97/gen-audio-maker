@@ -5,7 +5,6 @@ import struct
 import time
 from pathlib import Path
 from typing import Dict, Union, List, Tuple
-
 from google import genai
 from google.genai import types
 
@@ -21,23 +20,41 @@ except ImportError:
         pass
 
 # --- Configuration ---
-INPUT_DIR = Path(r"C:\Users\rafae\PycharmProjects\gen-audio-maker\audio-input")  # Example path
-OUTPUT_DIR = Path(r"C:\Users\rafae\PycharmProjects\gen-audio-maker\audio-output")  # Example path
+SCRIPT_DIR = Path(__file__).resolve().parent
+INPUT_DIR = SCRIPT_DIR / "audio-input"
+OUTPUT_DIR = SCRIPT_DIR / "audio-output"
 MAX_CONCURRENT_REQUESTS = 3
 GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
 
 # Add your style instruction here
 #STYLE_INSTRUCTION = "Leia em uma voz grave e calma."
 STYLE_INSTRUCTION = ""
+
 # --- Rate Limiting Configuration ---
-# NOTE: The script's concurrency is now primarily managed by the worker pattern and semaphore,
-# but this client-side rate limiter is kept as an extra safeguard.
-API_REQUEST_LIMIT = 3
+API_REQUEST_LIMIT = 5
 API_REQUEST_WINDOW_SECONDS = 60
+class RateLimiter:
+    def __init__(self, limit: int = 3, window_seconds: int = 60):
+        self.limit = limit
+        self.window = window_seconds
+        self.timestamps: List[float] = []
+        self.lock = asyncio.Lock()
 
-request_timestamps: List[float] = []
-rate_limit_lock = asyncio.Lock()
+    async def wait_for_slot(self):
+        while True:
+            async with self.lock:
+                now = time.monotonic()
+                # Remove timestamps outside the window
+                self.timestamps = [ts for ts in self.timestamps if ts > now - self.window]
 
+                if len(self.timestamps) < self.limit:
+                    self.timestamps.append(now)
+                    return  # Slot acquired
+
+                # Calculate time to wait for the oldest request to expire
+                time_to_wait = max(self.timestamps[0] + self.window - now, 0.001)
+
+            await asyncio.sleep(time_to_wait)
 
 # --- API Key Manager ---
 class ApiKeyManager:
@@ -152,24 +169,9 @@ def sync_generate_and_save_tts(api_key: str, text_content: str, output_audio_pat
     if not audio_data_found:
         raise RuntimeError(f"No audio data in API response stream for {Path(output_audio_path).name}")
 
-
-# --- Rate Limiting Logic (wait_for_rate_limit_slot - unchanged) ---
-async def wait_for_rate_limit_slot():
-    while True:
-        async with rate_limit_lock:
-            now = time.monotonic()
-            while request_timestamps and request_timestamps[0] <= now - API_REQUEST_WINDOW_SECONDS:
-                request_timestamps.pop(0)
-            if len(request_timestamps) < API_REQUEST_LIMIT:
-                request_timestamps.append(now)
-                return
-            time_to_wait = max(request_timestamps[0] + API_REQUEST_WINDOW_SECONDS - now, 0.001)
-        await asyncio.sleep(time_to_wait)
-
-
 # --- Asynchronous Worker and Processing Logic ---
 async def process_file_attempt(
-        txt_file_path: Path, output_audio_path: Path, api_key: str
+        txt_file_path: Path, output_audio_path: Path, api_key: str, rate_limiter: RateLimiter
 ):
     """Core logic for a single file processing attempt. Separated to be wrapped by a semaphore."""
     input_filename = txt_file_path.name
@@ -179,7 +181,7 @@ async def process_file_attempt(
         print(f"Warning: '{input_filename}' is empty. Skipping.")
         return  # Indicate success (nothing to do)
 
-    await wait_for_rate_limit_slot()
+    await rate_limiter.wait_for_slot() # Cleaner call
     key_suffix = api_key[-4:]
     print(f"'{input_filename}' converting (using API key ...{key_suffix})...")
 
@@ -216,7 +218,8 @@ async def worker(
         queue: asyncio.Queue,
         key_manager: ApiKeyManager,
         semaphore: asyncio.Semaphore,
-        stop_event: asyncio.Event
+        stop_event: asyncio.Event,
+        rate_limiter: RateLimiter
 ):
     """A worker task that processes files from the queue until the queue is empty or a stop signal is received."""
     while not stop_event.is_set():
@@ -242,7 +245,7 @@ async def worker(
         try:
             # Use the semaphore to limit true concurrency of API calls
             async with semaphore:
-                await process_file_attempt(txt_file_path, output_audio_path, current_api_key)
+                await process_file_attempt(txt_file_path, output_audio_path, current_api_key, rate_limiter)
         except Exception as e:
             if is_quota_error(e):
                 short_error_msg = str(e.__cause__ or e).splitlines()[0]
@@ -267,7 +270,7 @@ def natural_sort_key(path_obj: Path):
 
 # --- Main Orchestration ---
 async def main():
-    api_key_names = ["GEMINI_API_KEY5", "GEMINI_API_KEY2", "GEMINI_API_KEY3", "GEMINI_API_KEY4", "GEMINI_API_KEY",
+    api_key_names = ["GEMINI_API_KEY", "GEMINI_API_KEY2", "GEMINI_API_KEY3", "GEMINI_API_KEY4", "GEMINI_API_KEY5",
                      "GEMINI_API_KEY6", "GEMINI_API_KEY7", "GEMINI_API_KEY8", "GEMINI_API_KEY9"]
     raw_api_keys = [os.environ.get(key_name) for key_name in api_key_names]
 
@@ -300,11 +303,14 @@ async def main():
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     stop_event = asyncio.Event()
 
+    # --- Create rate limiter ---
+    rate_limiter = RateLimiter(API_REQUEST_LIMIT, API_REQUEST_WINDOW_SECONDS)
+
     # --- Create and start worker tasks ---
     worker_tasks = []
     for i in range(MAX_CONCURRENT_REQUESTS):
         task = asyncio.create_task(
-            worker(f"Worker-{i + 1}", file_queue, key_manager, semaphore, stop_event)
+            worker(f"Worker-{i + 1}", file_queue, key_manager, semaphore, stop_event, rate_limiter)
         )
         worker_tasks.append(task)
 
