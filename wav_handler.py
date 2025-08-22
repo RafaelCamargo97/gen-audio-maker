@@ -1,47 +1,54 @@
 import os
 import re
+from pathlib import Path
+
 from pydub import AudioSegment
 
-# Caminhos
-pasta_audio = r"C:\Users\rafae\PycharmProjects\gen-audio-maker\audio-output"
-pasta_saida = os.path.join(pasta_audio, "whole-audiobook")
-os.makedirs(pasta_saida, exist_ok=True)  # Garante que a subpasta exista
+# --- Paths ---
+# Use pathlib for a more modern and readable approach
+base_audio_folder = Path(__file__).resolve().parent / "audio-output"
+output_folder = base_audio_folder / "whole-audiobook"
+output_folder.mkdir(parents=True, exist_ok=True)  # Ensure the subfolder exists
 
-# Regex para identificar e extrair o número do nome do arquivo
-padrao_arquivo = re.compile(r"block(\d+)\.wav")
+# Regex to identify and extract the number from the filename
+file_pattern = re.compile(r"block(\d+)\.wav")
 
-# Lista e filtra arquivos .wav que seguem o padrão blockX.wav
-arquivos = [
-    f for f in os.listdir(pasta_audio)
-    if padrao_arquivo.match(f)
+# List and filter .wav files that follow the blockX.wav pattern
+# Using pathlib's glob is often cleaner than os.listdir + filter
+wav_files = [
+    f.name for f in base_audio_folder.glob("*.wav")
+    if file_pattern.match(f.name)
 ]
 
-# Ordena os arquivos com base no número no nome
-arquivos_ordenados = sorted(
-    arquivos,
-    key=lambda nome: int(padrao_arquivo.match(nome).group(1))
+# Sort the files based on the number in the name
+sorted_files = sorted(
+    wav_files,
+    key=lambda filename: int(file_pattern.match(filename).group(1))
 )
 
-# --- AJUSTE AQUI ---
-# Cria uma pausa de 0.5 segundos (500 milissegundos)
-# É mais eficiente criar o objeto da pausa uma vez, fora do loop.
-pausa = AudioSegment.silent(duration=350)
-# --- FIM DO AJUSTE ---
+# --- ADJUSTMENT HERE ---
+# Create a pause of 0.35 seconds (350 milliseconds)
+# It's more efficient to create the pause object once, outside the loop.
+pause = AudioSegment.silent(duration=350)
+# --- END OF ADJUSTMENT ---
 
-# Concatena os arquivos de áudio
+# Concatenate the audio files
 audiobook = AudioSegment.empty()
 
-for nome_arquivo in arquivos_ordenados:
-    caminho_arquivo = os.path.join(pasta_audio, nome_arquivo)
-    trecho = AudioSegment.from_wav(caminho_arquivo)
+for filename in sorted_files:
+    file_path = base_audio_folder / filename
+    audio_segment = AudioSegment.from_wav(file_path)
 
-    # --- AJUSTE AQUI ---
-    # Adiciona a pausa antes de cada trecho de áudio
-    audiobook += pausa + trecho
-    # --- FIM DO AJUSTE ---
+    # --- ADJUSTMENT HERE ---
+    # Add the pause before each audio segment (except the very first one)
+    if not audiobook: # If the audiobook is empty, this is the first segment
+        audiobook += audio_segment
+    else:
+        audiobook += pause + audio_segment
+    # --- END OF ADJUSTMENT ---
 
-# Salva o arquivo final
-caminho_saida_final = os.path.join(pasta_saida, "whole_audiobook.wav")
-audiobook.export(caminho_saida_final, format="wav")
+# Save the final file
+final_output_path = output_folder / "whole_audiobook.wav"
+audiobook.export(final_output_path, format="wav")
 
-print(f"Audiobook concatenado salvo em: {caminho_saida_final}")
+print(f"Concatenated audiobook saved to: {final_output_path}")

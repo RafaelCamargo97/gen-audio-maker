@@ -1,7 +1,7 @@
 import os
 import re
 from PyPDF2 import PdfReader  # Or from pypdf import PdfReader for newer installations
-
+from pathlib import Path
 
 def find_first_pdf(folder_path):
     """Finds the first PDF file in the given folder."""
@@ -116,7 +116,7 @@ def clean_pdf_text(pdf_path, output_path, header_text, footer_page_number_patter
 
 
 def main():
-    input_folder = r"C:\Users\rafae\PycharmProjects\gen-audio-maker\text-input"  # Use raw string for paths
+    input_folder = Path(__file__).resolve().parent / "text-input"
 
     # Parameters for "Alice's Adventures in Wonderland"
     header_to_remove = "Alice’s Adventures in Wonderland"  # Exact header text
