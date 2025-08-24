@@ -124,19 +124,26 @@ Your project must follow this folder structure for the scripts to work correctly
 codeCode
 
 ```
-your-project-folder/
-├── text-input/
-│   └── my_book.pdf         # Your source PDF or .txt file goes here
-├── audio-input/            # STAGE 1 OUTPUT / STAGE 2 INPUT
-├── audio-output/           # STAGE 2 OUTPUT / STAGE 3 INPUT
-│   └── whole-audiobook/    # STAGE 3 OUTPUT
+project-folder/
+├── data/
+│   ├── text-input/
+│   │   └── my_book.pdf
+│   ├── audio-input/            # STAGE 1 OUTPUT / STAGE 2 INPUT
+│   └── audio-output/           # STAGE 2 OUTPUT / STAGE 3 INPUT
+│       └── whole-audiobook/    # STAGE 3 OUTPUT
 ├── media/
-│   ├── video.mp4           # Your background video for Stage 4
-│   └── audio.mp3           # Your final audiobook for Stage 4
-├── process_text.py         # Script for Stage 1
-├── generate_audio.py       # Script for Stage 2
-├── concatenate_audio.py    # Script for Stage 3
-├── create_video.py         # Script for Stage 4
+│    ├── video.mp4           # Your background video for Stage 4
+│    └── audio.mp3           # Your final audiobook for Stage 4
+├── src/
+│   ├── __init__.py                  # Good practice, can be empty
+│   ├── gemini_audiobook_creator.py      # Renamed for clarity
+│   ├── pdf_cleaner.py
+│   ├── pdf_handler.py
+│   ├── wav_handler.py
+│   └── video_loop.py
+│
+├── .gitignore
+├── README.md
 └── requirements.txt
 ```
 
