@@ -20,9 +20,9 @@ except ImportError:
         pass
 
 # --- Configuration ---
-SCRIPT_DIR = Path(__file__).resolve().parent
-INPUT_DIR = SCRIPT_DIR / "audio-input"
-OUTPUT_DIR = SCRIPT_DIR / "audio-output"
+SCRIPT_DIR = Path(__file__).resolve().parent.parent
+INPUT_DIR = SCRIPT_DIR / "data/audio-input"
+OUTPUT_DIR = SCRIPT_DIR / "data/audio-output"
 MAX_CONCURRENT_REQUESTS = 3
 GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
 

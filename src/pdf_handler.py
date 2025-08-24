@@ -5,10 +5,10 @@ from pathlib import Path
 from PyPDF2 import PdfReader
 
 # --- Input and Output Paths ---
-SCRIPT_DIR = Path(__file__).resolve().parent
-input_folder = SCRIPT_DIR / "text-input"
-output_folder = SCRIPT_DIR / "audio-input"
-CHARACTER_LIMIT = 4000
+SCRIPT_DIR = Path(__file__).resolve().parent.parent
+input_folder = SCRIPT_DIR / "data/text-input"
+output_folder = SCRIPT_DIR / "data/audio-input"
+CHARACTER_LIMIT = 1100
 
 
 def find_source_file(folder_path: Path) -> Path:

@@ -116,7 +116,7 @@ def clean_pdf_text(pdf_path, output_path, header_text, footer_page_number_patter
 
 
 def main():
-    input_folder = Path(__file__).resolve().parent / "text-input"
+    input_folder = Path(__file__).resolve().parent.parent / "data/text-input"
 
     # Parameters for "Alice's Adventures in Wonderland"
     header_to_remove = "Alice’s Adventures in Wonderland"  # Exact header text

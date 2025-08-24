@@ -7,7 +7,7 @@ from moviepy.editor import (
 )
 
 # --- CONFIGURATION ---
-MEDIA_FOLDER = Path(__file__).resolve().parent / "media"
+MEDIA_FOLDER = Path(__file__).resolve().parent.parent / "data/media"
 INPUT_VIDEO_NAME = "video.mp4"
 INPUT_AUDIO_NAME = "audio.mp3"  # Can be .mp3, .wav, etc.
 OUTPUT_VIDEO_NAME = "final_video.mp4"
