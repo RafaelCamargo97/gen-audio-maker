@@ -2,3 +2,4 @@ google-generativeai
 pydub
 moviepy==1.0.3
 PyPDF2
+python-dotenv

@@ -5,6 +5,7 @@ import struct
 import time
 from pathlib import Path
 from typing import Dict, Union, List, Tuple
+from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
@@ -20,6 +21,7 @@ except ImportError:
         pass
 
 # --- Configuration ---
+load_dotenv()
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
 INPUT_DIR = SCRIPT_DIR / "data/audio-input"
 OUTPUT_DIR = SCRIPT_DIR / "data/audio-output"
@@ -264,15 +266,21 @@ async def worker(
             queue.task_done()
 
 
-def natural_sort_key(path_obj: Path):
-    return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', path_obj.name)]
+def natural_sort_key(text_to_sort: str):
+    return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', text_to_sort)]
 
 
 # --- Main Orchestration ---
 async def main():
-    api_key_names = ["GEMINI_API_KEY", "GEMINI_API_KEY2", "GEMINI_API_KEY3", "GEMINI_API_KEY4", "GEMINI_API_KEY5",
-                     "GEMINI_API_KEY6", "GEMINI_API_KEY7", "GEMINI_API_KEY8", "GEMINI_API_KEY9"]
-    raw_api_keys = [os.environ.get(key_name) for key_name in api_key_names]
+
+    api_key_names = [
+        key for key in os.environ
+        if key.startswith("GEMINI_API_KEY")
+    ]
+
+    sorted_key_names = sorted(api_key_names, key=natural_sort_key)
+
+    raw_api_keys = [os.environ.get(key_name) for key_name in sorted_key_names]
 
     try:
         key_manager = ApiKeyManager(raw_api_keys)
@@ -288,7 +296,8 @@ async def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     (INPUT_DIR / "converted").mkdir(parents=True, exist_ok=True)
 
-    txt_files = sorted(list(INPUT_DIR.glob("block*.txt")), key=natural_sort_key)
+    txt_files = sorted(INPUT_DIR.glob("block*.txt"), key=lambda path: natural_sort_key(path.name))
+
     if not txt_files:
         print(f"No 'block*.txt' files found in '{INPUT_DIR}'.")
         return
