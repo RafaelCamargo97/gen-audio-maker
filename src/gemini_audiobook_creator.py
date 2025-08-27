@@ -25,16 +25,16 @@ load_dotenv()
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
 INPUT_DIR = SCRIPT_DIR / "data/audio-input"
 OUTPUT_DIR = SCRIPT_DIR / "data/audio-output"
-MAX_CONCURRENT_REQUESTS = 3
-GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
+MAX_CONCURRENT_REQUESTS = int(os.environ["MAX_CONCURRENT_REQUESTS"])
+GEMINI_TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL")
 
 # Add your style instruction here
 #STYLE_INSTRUCTION = "Leia em uma voz grave e calma."
 STYLE_INSTRUCTION = ""
 
 # --- Rate Limiting Configuration ---
-API_REQUEST_LIMIT = 5
-API_REQUEST_WINDOW_SECONDS = 60
+API_REQUEST_LIMIT = int(os.environ["API_REQUEST_LIMIT"])
+API_REQUEST_WINDOW_SECONDS = int(os.environ["API_REQUEST_WINDOW_SECONDS"])
 class RateLimiter:
     def __init__(self, limit: int = 3, window_seconds: int = 60):
         self.limit = limit
