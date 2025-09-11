@@ -22,9 +22,9 @@ except ImportError:
 
 # --- Configuration ---
 load_dotenv()
-SCRIPT_DIR = Path(__file__).resolve().parent.parent
-INPUT_DIR = SCRIPT_DIR / "data/audio-input"
-OUTPUT_DIR = SCRIPT_DIR / "data/audio-output"
+#SCRIPT_DIR = Path(__file__).resolve().parent.parent
+#INPUT_DIR = SCRIPT_DIR / "data/audio-input"
+#OUTPUT_DIR = SCRIPT_DIR / "data/audio-output"
 MAX_CONCURRENT_REQUESTS = int(os.environ["MAX_CONCURRENT_REQUESTS"])
 GEMINI_TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL")
 
@@ -173,7 +173,7 @@ def sync_generate_and_save_tts(api_key: str, text_content: str, output_audio_pat
 
 # --- Asynchronous Worker and Processing Logic ---
 async def process_file_attempt(
-        txt_file_path: Path, output_audio_path: Path, api_key: str, rate_limiter: RateLimiter
+        txt_file_path: Path, output_audio_path: Path, api_key: str, rate_limiter: RateLimiter,  text_input_dir: Path
 ):
     """Core logic for a single file processing attempt. Separated to be wrapped by a semaphore."""
     input_filename = txt_file_path.name
@@ -192,10 +192,8 @@ async def process_file_attempt(
     )
 
     print(f"'{output_audio_path.name}' is ready.")
-    converted_dir = INPUT_DIR / "converted"
-    converted_dir.mkdir(parents=True, exist_ok=True)
     try:
-        txt_file_path.rename(converted_dir / txt_file_path.name)
+        txt_file_path.rename(output_audio_path / txt_file_path.name)
     except OSError as move_err:
         print(f"Warning: Created '{output_audio_path.name}', but failed to move '{input_filename}': {move_err}")
 
@@ -221,7 +219,9 @@ async def worker(
         key_manager: ApiKeyManager,
         semaphore: asyncio.Semaphore,
         stop_event: asyncio.Event,
-        rate_limiter: RateLimiter
+        rate_limiter: RateLimiter,
+        text_input_dir: Path,
+        audio_output_blocks_dir: Path
 ):
     """A worker task that processes files from the queue until the queue is empty or a stop signal is received."""
     while not stop_event.is_set():
@@ -242,12 +242,13 @@ async def worker(
             stop_event.set()
             continue
 
-        output_audio_path = OUTPUT_DIR / (txt_file_path.stem + ".wav")
+        output_audio_path = audio_output_blocks_dir / (txt_file_path.stem + ".wav")
 
         try:
             # Use the semaphore to limit true concurrency of API calls
             async with semaphore:
-                await process_file_attempt(txt_file_path, output_audio_path, current_api_key, rate_limiter)
+                await process_file_attempt(txt_file_path, output_audio_path, current_api_key,
+                                           rate_limiter, text_input_dir)
         except Exception as e:
             if is_quota_error(e):
                 short_error_msg = str(e.__cause__ or e).splitlines()[0]
@@ -271,7 +272,7 @@ def natural_sort_key(text_to_sort: str):
 
 
 # --- Main Orchestration ---
-async def main():
+async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_dir: Path):
 
     api_key_names = [
         key for key in os.environ
@@ -290,16 +291,14 @@ async def main():
 
     print(f"Initialized with {len(key_manager.api_keys)} API key(s).")
 
-    if not INPUT_DIR.exists() or not INPUT_DIR.is_dir():
-        print(f"Error: Input directory '{INPUT_DIR}' does not exist.")
+    if not text_input_dir.exists() or not text_input_dir.is_dir():
+        print(f"Error: Input directory '{text_input_dir}' does not exist.")
         return
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    (INPUT_DIR / "converted").mkdir(parents=True, exist_ok=True)
 
-    txt_files = sorted(INPUT_DIR.glob("block*.txt"), key=lambda path: natural_sort_key(path.name))
+    txt_files = sorted(text_input_dir.glob("block*.txt"), key=lambda path: natural_sort_key(path.name))
 
     if not txt_files:
-        print(f"No 'block*.txt' files found in '{INPUT_DIR}'.")
+        print(f"No 'block*.txt' files found in '{text_input_dir}'.")
         return
 
     print(f"Found {len(txt_files)} .txt files to process.")
@@ -319,7 +318,8 @@ async def main():
     worker_tasks = []
     for i in range(MAX_CONCURRENT_REQUESTS):
         task = asyncio.create_task(
-            worker(f"Worker-{i + 1}", file_queue, key_manager, semaphore, stop_event, rate_limiter)
+            worker(f"Worker-{i + 1}", file_queue, key_manager, semaphore, stop_event, rate_limiter,
+                   text_input_dir, audio_output_blocks_dir)
         )
         worker_tasks.append(task)
 
@@ -348,5 +348,5 @@ async def main():
             print(f"  - {remaining_file.name}")
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+#if __name__ == "__main__":
+#    asyncio.run(generate_audio_from_blocks())
