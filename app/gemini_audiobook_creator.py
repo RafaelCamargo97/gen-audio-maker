@@ -8,12 +8,11 @@ from typing import Dict, Union, List, Tuple
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from app.api_manager import ApiKeyManager, is_quota_error, get_api_keys
 
 try:
     from google.api_core.exceptions import ResourceExhausted, GoogleAPICallError
 except ImportError:
-    # Define dummy exceptions if google.api_core is not available,
-    # though it should be with google-generativeai
     class ResourceExhausted(Exception):
         pass
 
@@ -22,9 +21,6 @@ except ImportError:
 
 # --- Configuration ---
 load_dotenv()
-#SCRIPT_DIR = Path(__file__).resolve().parent.parent
-#INPUT_DIR = SCRIPT_DIR / "data/audio-input"
-#OUTPUT_DIR = SCRIPT_DIR / "data/audio-output"
 MAX_CONCURRENT_REQUESTS = int(os.environ["MAX_CONCURRENT_REQUESTS"])
 GEMINI_TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL")
 
@@ -58,48 +54,6 @@ class RateLimiter:
 
             await asyncio.sleep(time_to_wait)
 
-# --- API Key Manager ---
-class ApiKeyManager:
-    def __init__(self, api_keys: List[str]):
-        self.api_keys = [key for key in api_keys if key]
-        if not self.api_keys:
-            raise ValueError("No API keys provided to ApiKeyManager.")
-        self.current_key_index = 0
-        self.lock = asyncio.Lock()  # Protects access to the key index
-
-    async def get_key_for_processing(self) -> Tuple[Union[str, None], int]:
-        """Returns the current API key and its original index, or (None, -1) if all keys are exhausted."""
-        async with self.lock:
-            if self.current_key_index >= len(self.api_keys):
-                return None, -1
-            return self.api_keys[self.current_key_index], self.current_key_index
-
-    async def report_quota_error(self, failed_key_index: int):
-        """
-        Reports a quota error for a specific key index. Switches to the next key
-        if the failed key is still the currently active one.
-        """
-        async with self.lock:
-            # Only advance the key if the error is for the *current* key.
-            # This prevents a race condition where multiple tasks failing on the same
-            # old key would cause us to skip multiple fresh keys.
-            if self.current_key_index == failed_key_index:
-                old_key_str_for_log = self.api_keys[self.current_key_index][-4:]
-                self.current_key_index += 1
-                if self.current_key_index < len(self.api_keys):
-                    new_key_str_for_log = self.api_keys[self.current_key_index][-4:]
-                    print(
-                        f"Key ...{old_key_str_for_log} exhausted. Switching to API Key #{self.current_key_index + 1} (ending ...{new_key_str_for_log}).")
-                else:
-                    print(f"Key ...{old_key_str_for_log} exhausted. All API keys have now been tried.")
-
-    def are_all_keys_exhausted(self) -> bool:
-        """Checks if all available API keys have been marked as exhausted."""
-        # This can be called without a lock as it's a simple read.
-        return self.current_key_index >= len(self.api_keys)
-
-
-# --- Helper Functions (save_binary_file, parse_audio_mime_type, convert_to_wav - unchanged) ---
 def save_binary_file(file_name: Union[str, Path], data: bytes):
     with open(file_name, "wb") as f:
         f.write(data)
@@ -173,7 +127,8 @@ def sync_generate_and_save_tts(api_key: str, text_content: str, output_audio_pat
 
 # --- Asynchronous Worker and Processing Logic ---
 async def process_file_attempt(
-        txt_file_path: Path, output_audio_path: Path, api_key: str, rate_limiter: RateLimiter,  text_input_dir: Path
+        txt_file_path: Path, output_audio_path: Path, audio_converted_dir: Path, api_key: str,
+        rate_limiter: RateLimiter
 ):
     """Core logic for a single file processing attempt. Separated to be wrapped by a semaphore."""
     input_filename = txt_file_path.name
@@ -193,7 +148,7 @@ async def process_file_attempt(
 
     print(f"'{output_audio_path.name}' is ready.")
     try:
-        txt_file_path.rename(output_audio_path / txt_file_path.name)
+        txt_file_path.rename(audio_converted_dir / txt_file_path.name)
     except OSError as move_err:
         print(f"Warning: Created '{output_audio_path.name}', but failed to move '{input_filename}': {move_err}")
 
@@ -220,35 +175,37 @@ async def worker(
         semaphore: asyncio.Semaphore,
         stop_event: asyncio.Event,
         rate_limiter: RateLimiter,
-        text_input_dir: Path,
-        audio_output_blocks_dir: Path
+        audio_output_blocks_dir: Path,
+        audio_converted_dir: Path
 ):
-    """A worker task that processes files from the queue until the queue is empty or a stop signal is received."""
-    while not stop_event.is_set():
-        try:
-            # Wait for a file from the queue.
-            txt_file_path: Path = await queue.get()
-        except asyncio.CancelledError:
+    """A worker task that processes files from the queue until it receives a sentinel (None)."""
+    while True:
+
+        txt_file_path: Path = await queue.get()
+
+        # If we get the sentinel, acknowledge it and exit the loop.
+        if txt_file_path is None:
+            queue.task_done()
             break
 
-        # Check for key exhaustion *before* attempting to process.
-        current_api_key, key_idx = await key_manager.get_key_for_processing()
-
-        if current_api_key is None:
-            # All keys are exhausted. Re-queue the file and signal all workers to stop.
-            print(f"[{name}] All keys exhausted. Re-queueing '{txt_file_path.name}' and signaling stop.")
-            await queue.put(txt_file_path)
-            queue.task_done()
-            stop_event.set()
-            continue
-
-        output_audio_path = audio_output_blocks_dir / (txt_file_path.stem + ".wav")
-
         try:
+            # Check for key exhaustion *before* attempting to process.
+            current_api_key, key_idx = await key_manager.get_key_for_processing()
+
+            if current_api_key is None:
+                # All keys are exhausted. Re-queue the file and signal all workers to stop.
+                print(f"[{name}] All keys exhausted. Re-queueing '{txt_file_path.name}' and signaling stop.")
+                await queue.put(txt_file_path)
+                queue.task_done()
+                stop_event.set()
+                continue
+
+            output_audio_path = audio_output_blocks_dir / (txt_file_path.stem + ".wav")
+
             # Use the semaphore to limit true concurrency of API calls
             async with semaphore:
-                await process_file_attempt(txt_file_path, output_audio_path, current_api_key,
-                                           rate_limiter, text_input_dir)
+                await process_file_attempt(txt_file_path, output_audio_path, audio_converted_dir, current_api_key,
+                                           rate_limiter)
         except Exception as e:
             if is_quota_error(e):
                 short_error_msg = str(e.__cause__ or e).splitlines()[0]
@@ -272,21 +229,14 @@ def natural_sort_key(text_to_sort: str):
 
 
 # --- Main Orchestration ---
-async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_dir: Path):
+async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_dir: Path, audio_converted_dir: Path):
 
-    api_key_names = [
-        key for key in os.environ
-        if key.startswith("GEMINI_API_KEY")
-    ]
-
-    sorted_key_names = sorted(api_key_names, key=natural_sort_key)
-
-    raw_api_keys = [os.environ.get(key_name) for key_name in sorted_key_names]
+    raw_api_keys = get_api_keys()
 
     try:
         key_manager = ApiKeyManager(raw_api_keys)
     except ValueError:
-        print(f"Error: No Gemini API keys found. Please set at least one of {', '.join(api_key_names)}.")
+        print(f"Error: No Gemini API keys found. Please set at least one of {', '.join(raw_api_keys)}.")
         return
 
     print(f"Initialized with {len(key_manager.api_keys)} API key(s).")
@@ -319,7 +269,7 @@ async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_d
     for i in range(MAX_CONCURRENT_REQUESTS):
         task = asyncio.create_task(
             worker(f"Worker-{i + 1}", file_queue, key_manager, semaphore, stop_event, rate_limiter,
-                   text_input_dir, audio_output_blocks_dir)
+                   audio_output_blocks_dir, audio_converted_dir)
         )
         worker_tasks.append(task)
 
@@ -330,7 +280,9 @@ async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_d
 
     # --- Shutdown ---
     print("All initial files have been processed at least once. Finalizing...")
-    stop_event.set() # Signal all workers to stop gracefully
+
+    for _ in worker_tasks:
+        await file_queue.put(None)
 
     # Wait for all worker tasks to finish.
     await asyncio.gather(*worker_tasks, return_exceptions=True)
@@ -346,7 +298,3 @@ async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_d
         while not file_queue.empty():
             remaining_file = file_queue.get_nowait()
             print(f"  - {remaining_file.name}")
-
-
-#if __name__ == "__main__":
-#    asyncio.run(generate_audio_from_blocks())

@@ -1,13 +1,8 @@
-import os
 import re
 from pathlib import Path
 
 from PyPDF2 import PdfReader
 
-# --- Input and Output Paths ---
-SCRIPT_DIR = Path(__file__).resolve().parent.parent
-input_folder = SCRIPT_DIR / "data/text-input"
-output_folder = SCRIPT_DIR / "data/audio-input"
 CHARACTER_LIMIT = 1000
 
 
@@ -99,10 +94,9 @@ def save_blocks_to_files(blocks: list[str], destination_folder: Path):
             f.write(block)
 
 
-def process_pdf_to_blocks(source_pdf_path: Path, output_dir: Path):
+def process_pdf_to_blocks(source_pdf_path: Path, output_dir: Path) -> int:
     """Main execution process to find, process, and save text blocks."""
     try:
-        #source_file_path = find_source_file(input_folder)
         source_file_path = find_source_file(source_pdf_path)
         print(f"Source file found: {source_file_path}")
 
@@ -114,15 +108,10 @@ def process_pdf_to_blocks(source_pdf_path: Path, output_dir: Path):
                 text_content = f.read()
 
         blocks = split_text_into_blocks(text_content, limit=CHARACTER_LIMIT)
-        #save_blocks_to_files(blocks, output_folder)
         save_blocks_to_files(blocks, output_dir)
+        num_blocks = len(blocks)
 
-        print(f"{len(blocks)} blocks successfully saved to '{output_dir}'")
-        return blocks
+        print(f"{num_blocks} blocks successfully saved to '{output_dir}'")
+        return num_blocks
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
-# Run the script
-#if __name__ == "__main__":
-#    process_pdf_to_blocks()

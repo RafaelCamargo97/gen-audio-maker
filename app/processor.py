@@ -1,27 +1,30 @@
 from pathlib import Path
-from job_manager import JobManager
-from gemini_audiobook_creator import generate_audio_from_blocks
-from wav_handler import concatenate_audio_blocks
-from pdf_handler import process_pdf_to_blocks
+from app.job_manager import JobManager
+from app.gemini_audiobook_creator import generate_audio_from_blocks
+from app.wav_handler import concatenate_audio_blocks
+from app.pdf_handler import process_pdf_to_blocks
 
 
-def create_job_folders(base_data_dir: Path, job_id: str) -> tuple[Path, Path, Path, Path]:
+def create_job_folders(base_data_dir: Path, job_id: str) -> tuple[Path, Path, Path, Path, Path]:
     """Creates the folder structure for a given job ID and returns key paths."""
     job_dir = base_data_dir / job_id
     text_input_dir = job_dir / "text-input"
     audio_input_dir = job_dir / "audio-input"
     audio_output_dir = job_dir / "audio-output"
+    audio_converted_dir = audio_input_dir / "converted"
+    audio_input_dir = audio_input_dir / "backlog"
     audio_output_blocks_dir = audio_output_dir / "audio-blocks"
     final_audio_dir = audio_output_dir / "final-audio"
 
     # Create all directories
-    for d in [job_dir, text_input_dir, audio_input_dir, audio_output_dir, audio_output_blocks_dir, final_audio_dir]:
+    for d in [job_dir, text_input_dir, audio_input_dir, audio_converted_dir, audio_output_dir, audio_output_blocks_dir,
+              final_audio_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
-    return text_input_dir, audio_input_dir, audio_output_blocks_dir, final_audio_dir
+    return text_input_dir, audio_input_dir, audio_converted_dir, audio_output_blocks_dir, final_audio_dir
 
 
-async def run_conversion_pipeline(job_id: str, text_input_dir: Path, audio_input_dir: Path,
+async def run_conversion_pipeline(job_id: str, text_input_dir: Path, audio_input_dir: Path, audio_converted_dir: Path,
                                   audio_output_blocks_dir: Path, final_audio_dir: Path):
     try:
         # --- Step 1: Process PDF to text blocks ---
@@ -37,7 +40,8 @@ async def run_conversion_pipeline(job_id: str, text_input_dir: Path, audio_input
                                                            " (This may take a while)")
         print(f"[{job_id}] Starting Step 2: Audio Generation")
         await generate_audio_from_blocks(text_input_dir=audio_input_dir,
-                                         audio_output_blocks_dir=audio_output_blocks_dir)
+                                         audio_output_blocks_dir=audio_output_blocks_dir,
+                                         audio_converted_dir=audio_converted_dir)
         print(f"[{job_id}] Finished Step 2: Audio files generated.")
 
         # --- Step 3: Concatenate audio blocks ---

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Content Creator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/main.js" defer></script>
+</head>
+<body>
+    <main class="container">
+        <h1>AI Content Creator</h1>
+        <p>Your one-stop tool for generating audiobooks from PDFs or creating original stories with AI.</p>
+
+        <!-- Main Content Card -->
+        <div class="card">
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button id="tab-audiobook" class="tab-btn active">Audiobook Creator</button>
+                <button id="tab-story" class="tab-btn">Story Creator</button>
+            </div>
+
+            <!-- Tab Content Area -->
+            <div class="tab-content">
+                <!-- Audiobook Creator Form (Visible by default) -->
+                <div id="content-audiobook" class="tab-pane active">
+                    <form id="upload-form">
+                        <label for="pdf-upload">Choose a PDF file to convert:</label>
+                        <input type="file" id="pdf-upload" name="file" accept=".pdf" required>
+                        <button type="submit" id="submit-audiobook-btn">Create Audiobook</button>
+                    </form>
+                </div>
+
+                <!-- Story Creator Form (Hidden by default) -->
+                <div id="content-story" class="tab-pane">
+                    <form id="story-form">
+                        <div class="form-group">
+                            <label for="story-name">Story Name:</label>
+                            <input type="text" id="story-name" required minlength="1" maxlength="100" placeholder="e.g., The Last Starlight">
+                        </div>
+                        <div class="form-group">
+                            <label for="story-summary">Story Summary:</label>
+                            <textarea id="story-summary" rows="4" required minlength="10" maxlength="2000" placeholder="Describe the plot, setting, and main characters..."></textarea>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="story-chapters">Number of Chapters:</label>
+                                <input type="number" id="story-chapters" required min="1" max="20" value="5">
+                            </div>
+                            <div class="form-group">
+                                <label for="story-chars">Approx. Chars / Chapter:</label>
+                                <input type="number" id="story-chars" required min="100" max="10000" value="3000">
+                            </div>
+                        </div>
+                        <button type="submit" id="submit-story-btn">Generate Story</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- SHARED Status Display Area -->
+        <div id="status-container" class="card hidden">
+            <div id="spinner" class="spinner"></div>
+            <p id="status-text">Starting process...</p>
+        </div>
+
+        <!-- SHARED Result Display Area -->
+        <div id="result-container" class="card hidden">
+            <h2>Success!</h2>
+            <p id="result-message"></p>
+            <!-- Download link will be inserted here by JavaScript -->
+        </div>
+    </main>
+</body>
+</html>

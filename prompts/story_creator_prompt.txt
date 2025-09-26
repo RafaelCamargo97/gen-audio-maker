@@ -1,0 +1,11 @@
+Quero que você me ajude a criar uma história original com base nas seguintes informações:
+	• Nome da história: [INSIRA AQUI]
+	• Resumo da história: [INSIRA UM RESUMO GERAL DO ENREDO, AMBIENTAÇÃO, PERSONAGENS PRINCIPAIS ETC.]
+	• Quantidade de capítulos: [INSIRA O NÚMERO TOTAL DE CAPÍTULOS]
+	• Número mínimo de caracteres por capítulo: [INSIRA UM NÚMERO APROXIMADO, EX: 3.000 CARACTERES]
+Com base nesses dados, quero que você:
+	1. Crie um sumário detalhado da história, listando o que acontece em cada capítulo, do primeiro ao último.
+	2. O sumário de cada capítulo deve conter pelo menos 4 a 6 linhas, detalhando os principais eventos, conflitos e desenvolvimento dos personagens naquele capítulo.
+	3. Evite escrever a história agora — apenas me forneça os títulos dos capítulos (opcional) e os resumos do enredo de cada um.
+	4. Garanta que a narrativa tenha uma estrutura coerente de introdução, desenvolvimento e desfecho. Se houver reviravoltas ou clímax, destaque isso no sumário.
+Após receber esse sumário, irei revisá-lo e então solicitarei a escrita da história um capítulo por vez, podendo fazer alterações no enredo ao longo do processo.
