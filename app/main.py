@@ -102,10 +102,11 @@ async def download_file(job_id: str):
             return FileResponse(path=pdf_files[0], media_type='application/pdf', filename=pdf_files[0].name)
 
     # Check for audiobook WAV next
-    audio_dir = job_dir / "final-audio"
-    audio_file = audio_dir / "whole_audiobook.wav"
+    audio_dir = job_dir / "audio-output" / "final-audio"
+    audio_file = audio_dir / "final_audio.wav"
+    print(audio_file)
     if audio_file.exists():
-        return FileResponse(path=audio_file, media_type='audio/wav', filename='whole_audiobook.wav')
+        return FileResponse(path=audio_file, media_type='audio/wav', filename='final_audio.wav')
 
     # If neither exists, raise an error
     raise HTTPException(status_code=404, detail="Final file not ready or job ID not found.")

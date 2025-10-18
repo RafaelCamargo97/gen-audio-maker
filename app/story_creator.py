@@ -15,11 +15,13 @@ class PDF(FPDF):
     def footer(self):
         pass
 
+
 def clean_markdown(text: str) -> str:
     """Removes common Markdown formatting from text."""
     text = text.replace("### ", "").replace("## ", "").replace("# ", "")
     text = text.replace("**", "").replace("*", "")
     return text.strip()
+
 
 def create_pdf(title: str, content: str, output_path: Path):
     """Creates a PDF file from the generated story text using a Unicode font."""
@@ -40,6 +42,24 @@ def create_pdf(title: str, content: str, output_path: Path):
     print(f"PDF saved to {output_path}")
 
 
+def create_story_progress_updater(job_id: str, num_chapter_batches: int) -> callable:
+    """
+    Calculates progress increments and returns a callback for the story creator.
+    """
+    total_steps = num_chapter_batches + 2
+
+    if total_steps <= 0:
+        increment_value = 50
+    else:
+        increment_value = 100 / total_steps
+
+    def update_progress_callback():
+        """This callback will be passed down and called after each major step."""
+        JobManager.increment_job_progress(job_id, increment_value)
+
+    return update_progress_callback
+
+
 async def run_story_creation_pipeline(job_id: str, base_data_dir: Path, story_params: Dict[str, Any]):
     """
     The main background task for the story creation pipeline.
@@ -48,8 +68,8 @@ async def run_story_creation_pipeline(job_id: str, base_data_dir: Path, story_pa
     story_name = story_params.get("name")
 
     try:
-        JobManager.update_job_status(job_id, "processing", "Step 1/3: Initializing and preparing prompts...")
-
+        JobManager.update_job_status(job_id, "processing", "Step 1/3: Initializing and "
+                                                           "preparing prompts...", progress=0)
         # --- Prepare Prompts ---
         # 1.1 Load prompt templates from files
         prompt_dir = Path(__file__).resolve().parent.parent / "prompts"
@@ -75,13 +95,18 @@ async def run_story_creation_pipeline(job_id: str, base_data_dir: Path, story_pa
                 prompt_text = f"Perfeito!\nAgora, escreva o capítulo final, o de número {i}."
 
             # Add the crucial instruction from prompt2 to every request
-            prompt_text += ("\nImportante: sua resposta deve ser apenas o nome e texto do capítulo, você não deve fazer "
-                            "nenhum tipo de interação comigo na resposta ou falar algo que não seja o capítulo em si.")
+            prompt_text += (
+                "\nImportante: sua resposta deve ser apenas o nome e texto do capítulo, você não deve fazer "
+                "nenhum tipo de interação comigo na resposta ou falar algo que não seja o capítulo em si.")
             prompt_text += "\nNão use formatação Markdown como '#', '*' ou '_'. Escreva apenas o texto puro."
 
             chapter_prompts.append(prompt_text)
 
-        JobManager.update_job_status(job_id, "processing", "Step 2/3: Generating story with AI... (This can take time)")
+        num_batches = len(chapter_prompts)
+        progress_callback = create_story_progress_updater(job_id, num_batches)
+
+        JobManager.update_job_status(job_id, "processing", "Step 2/3:"
+                                                       " Generating story with AI... (This can take time)", progress=-1)
 
         # --- Initialize API Manager and get a key ---
         api_keys = get_api_keys()
@@ -91,17 +116,19 @@ async def run_story_creation_pipeline(job_id: str, base_data_dir: Path, story_pa
             raise RuntimeError("All API keys are exhausted.")
 
         # --- Generate Story ---
-        full_story_text = await generate_story_with_memory(api_key, initial_prompt, chapter_prompts)
+        full_story_text = await generate_story_with_memory(api_key, initial_prompt, chapter_prompts, progress_callback)
 
         cleaned_story_text = clean_markdown(full_story_text)
 
-        JobManager.update_job_status(job_id, "processing", "Step 3/3: Creating final PDF document...")
+        current_progress = JobManager.retrieve_job_status(job_id).get("progress", 0)
+        JobManager.update_job_status(job_id, "processing", "Step 3/3: Creating final PDF document...",
+                                     progress=int(current_progress))
 
         # --- Create PDF ---
         pdf_output_path = final_story_dir / f"{story_name.replace(' ', '_')}.pdf"
         create_pdf(title=story_name, content=cleaned_story_text, output_path=pdf_output_path)
 
-        JobManager.update_job_status(job_id, "complete", "Your story is ready for download!")
+        JobManager.update_job_status(job_id, "complete", "Your story is ready for download!", progress=100)
         print(f"[{job_id}] Story creation job completed successfully.")
 
     except Exception as e:
@@ -113,4 +140,4 @@ async def run_story_creation_pipeline(job_id: str, base_data_dir: Path, story_pa
             JobManager.update_job_status(job_id, "error", error_msg)
         else:
             print(f"[{job_id}] An error occurred in the story pipeline: {e}")
-            JobManager.update_job_status(job_id, "error", f"An error occurred: {e}")
+            JobManager.update_job_status(job_id, "error", f"An error occurred: {e}", progress=-1)

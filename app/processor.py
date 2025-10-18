@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Callable
 from app.job_manager import JobManager
 from app.gemini_audiobook_creator import generate_audio_from_blocks
 from app.wav_handler import concatenate_audio_blocks
@@ -23,6 +24,29 @@ def create_job_folders(base_data_dir: Path, job_id: str) -> tuple[Path, Path, Pa
 
     return text_input_dir, audio_input_dir, audio_converted_dir, audio_output_blocks_dir, final_audio_dir
 
+def create_progress_updater(job_id: str, num_blocks: int) -> Callable:
+    """
+    Calculates progress increments and creates a callback function for workers.
+
+    Args:
+        job_id: The ID of the job to update.
+        num_blocks: The number of audio blocks to be processed.
+
+    Returns:
+        A tuple containing the increment value and the callback function.
+    """
+    if num_blocks <= 0:
+        total_steps = 2
+    else:
+        total_steps = num_blocks + 2
+
+    increment_value = 100 / total_steps
+
+    def update_progress_callback():
+        """This function will be called by each worker after it finishes a block."""
+        JobManager.increment_job_progress(job_id, increment_value)
+
+    return update_progress_callback
 
 async def run_conversion_pipeline(job_id: str, text_input_dir: Path, audio_input_dir: Path, audio_converted_dir: Path,
                                   audio_output_blocks_dir: Path, final_audio_dir: Path):
@@ -33,6 +57,11 @@ async def run_conversion_pipeline(job_id: str, text_input_dir: Path, audio_input
         num_blocks = process_pdf_to_blocks(source_pdf_path=text_input_dir, output_dir=audio_input_dir)
         if num_blocks == 0:
             raise ValueError("No text blocks were generated from the source file.")
+
+        progress_callback = create_progress_updater(job_id, num_blocks)
+
+        progress_callback()
+
         print(f"[{job_id}] Finished Step 1: Created {num_blocks} text blocks.")
 
         # --- Step 2: Generate audio from text blocks ---
@@ -41,7 +70,8 @@ async def run_conversion_pipeline(job_id: str, text_input_dir: Path, audio_input
         print(f"[{job_id}] Starting Step 2: Audio Generation")
         await generate_audio_from_blocks(text_input_dir=audio_input_dir,
                                          audio_output_blocks_dir=audio_output_blocks_dir,
-                                         audio_converted_dir=audio_converted_dir)
+                                         audio_converted_dir=audio_converted_dir,
+                                         progress_callback=progress_callback)
         print(f"[{job_id}] Finished Step 2: Audio files generated.")
 
         # --- Step 3: Concatenate audio blocks ---

@@ -1,6 +1,6 @@
 # gemini_client.py
 import os
-from typing import List
+from typing import List, Callable, Optional
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -16,6 +16,7 @@ async def generate_story_with_memory(
     api_key: str,
     initial_prompt: str,
     chapter_prompts: List[str],
+    progress_callback: Optional[Callable] = None,
 ) -> str:
     """
     Generate a multi-chapter story preserving short-term 'memory' by keeping
@@ -53,13 +54,15 @@ async def generate_story_with_memory(
     # Prefer to append the model-returned content candidate if present.
     # If not present, fall back to creating a model Content from response.text.
     if getattr(plan_response, "candidates", None) and len(plan_response.candidates) > 0:
-        # candidates[0].content is already a types.Content (usually with model role)
         chat_history.append(plan_response.candidates[0].content)
+
     else:
-        # fallback: create a model content with the returned text
         chat_history.append(
             types.Content(role="model", parts=[types.Part.from_text(text=plan_response.text)])
         )
+
+    if progress_callback:
+        progress_callback()
 
     # Now iterate through chapter prompts, sending the accumulated history + new prompt.
     full_story_text = ""
@@ -112,6 +115,9 @@ async def generate_story_with_memory(
             chat_history.append(
                 types.Content(role="model", parts=[types.Part.from_text(text=chapter_text)])
             )
+
+        if progress_callback:
+            progress_callback()
 
     print("Story generation complete.")
     return full_story_text

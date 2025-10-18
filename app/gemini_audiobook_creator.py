@@ -4,7 +4,7 @@ import re
 import struct
 import time
 from pathlib import Path
-from typing import Dict, Union, List, Tuple
+from typing import Dict, Union, List, Callable
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -128,7 +128,7 @@ def sync_generate_and_save_tts(api_key: str, text_content: str, output_audio_pat
 # --- Asynchronous Worker and Processing Logic ---
 async def process_file_attempt(
         txt_file_path: Path, output_audio_path: Path, audio_converted_dir: Path, api_key: str,
-        rate_limiter: RateLimiter
+        rate_limiter: RateLimiter, progress_callback: callable
 ):
     """Core logic for a single file processing attempt. Separated to be wrapped by a semaphore."""
     input_filename = txt_file_path.name
@@ -145,7 +145,7 @@ async def process_file_attempt(
     await asyncio.to_thread(
         sync_generate_and_save_tts, api_key, text_content, output_audio_path
     )
-
+    progress_callback()
     print(f"'{output_audio_path.name}' is ready.")
     try:
         txt_file_path.rename(audio_converted_dir / txt_file_path.name)
@@ -176,7 +176,8 @@ async def worker(
         stop_event: asyncio.Event,
         rate_limiter: RateLimiter,
         audio_output_blocks_dir: Path,
-        audio_converted_dir: Path
+        audio_converted_dir: Path,
+        progress_callback: callable
 ):
     """A worker task that processes files from the queue until it receives a sentinel (None)."""
     while True:
@@ -205,7 +206,7 @@ async def worker(
             # Use the semaphore to limit true concurrency of API calls
             async with semaphore:
                 await process_file_attempt(txt_file_path, output_audio_path, audio_converted_dir, current_api_key,
-                                           rate_limiter)
+                                           rate_limiter, progress_callback)
         except Exception as e:
             if is_quota_error(e):
                 short_error_msg = str(e.__cause__ or e).splitlines()[0]
@@ -229,7 +230,8 @@ def natural_sort_key(text_to_sort: str):
 
 
 # --- Main Orchestration ---
-async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_dir: Path, audio_converted_dir: Path):
+async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_dir: Path, audio_converted_dir: Path,
+                                     progress_callback: callable):
 
     raw_api_keys = get_api_keys()
 
@@ -269,7 +271,7 @@ async def generate_audio_from_blocks(text_input_dir: Path, audio_output_blocks_d
     for i in range(MAX_CONCURRENT_REQUESTS):
         task = asyncio.create_task(
             worker(f"Worker-{i + 1}", file_queue, key_manager, semaphore, stop_event, rate_limiter,
-                   audio_output_blocks_dir, audio_converted_dir)
+                   audio_output_blocks_dir, audio_converted_dir, progress_callback)
         )
         worker_tasks.append(task)
 

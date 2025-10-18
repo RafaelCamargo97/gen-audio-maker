@@ -1,262 +1,220 @@
-GenAI Audiobook & Video Creator
-===============================
+# AI Content Creator: Audiobook & Story Generator
 
-This project is a complete, multi-stage pipeline designed to transform a text document (PDF or .txt) into a full-length audiobook, and then set that audiobook to a seamlessly looping background video.
+This web application leverages the power of Google's Gemini API to serve as a versatile content creation tool. It can transform PDF documents into full-length audiobooks and generate original, multi-chapter stories from a simple user prompt. The application is built with a responsive FastAPI backend and a dynamic vanilla JavaScript frontend.
 
-It leverages Google's powerful Gemini Text-to-Speech API for high-quality audio generation and uses robust Python libraries for media processing, ensuring an efficient and automated workflow from text to final video.
+![Screenshot of the application's UI](placeholder.png)
 
-Features
---------
+## ✨ Features
 
--   **End-to-End Automation:** A four-stage process that takes a single source file and produces a final video with minimal manual intervention.
--   **Intelligent Text Processing:** Automatically splits large text documents into smaller, manageable chunks without cutting off sentences.
--   **High-Performance TTS Generation:** Uses an asynchronous, concurrent processing model to convert text to speech rapidly.
--   **Robust API Key Management:** Intelligently cycles through multiple Gemini API keys to overcome rate limits and quota exhaustion, maximizing throughput.
--   **Seamless Media Looping:** Creates long-form audio and video by concatenating shorter clips with smooth crossfades, perfect for long audiobook formats.
--   **Flexible and Configurable:** Key parameters like character limits, concurrency, and output duration can be easily adjusted within the scripts.
+*   **PDF to Audiobook Conversion:**
+    *   Upload any PDF file.
+    *   Automatically splits text into intelligent blocks for high-quality TTS.
+    *   Generates audio for each block concurrently for speed.
+    *   Combines audio blocks into a single downloadable `.wav` file.
+*   **AI Story Generation:**
+    *   Provide a title, summary, and chapter details to generate a unique story.
+    *   Uses a conversational AI session to maintain context and memory throughout the writing process.
+    *   Generates a clean, downloadable `.pdf` of the final story.
+*   **Dynamic User Interface:**
+    *   Clean, tabbed interface to switch between tools.
+    *   Real-time progress bar with percentage updates for long-running jobs.
+    *   Asynchronous job processing—the UI remains responsive while the backend works.
+*   **Robust Backend:**
+    *   Built with modern FastAPI.
+    *   Manages multiple Gemini API keys, automatically switching when a quota is exhausted.
+    *   Built-in rate limiting to respect API usage policies.
 
-How It Works: The Four-Stage Pipeline
--------------------------------------
+## 🛠️ Technology Stack
 
-The project operates as a sequential pipeline. You run each script in order, and the output of one stage becomes the input for the next.
+*   **Backend:**
+    *   Python 3.9+
+    *   FastAPI (for the web framework and background tasks)
+    *   Uvicorn (as the ASGI server)
+    *   Google Generative AI SDK (`google-generativeai`)
+    *   PyPDF2 (for PDF text extraction)
+    *   Pydub (for audio manipulation)
+    *   FPDF2 (for PDF generation)
+*   **Frontend:**
+    *   HTML5
+    *   CSS3
+    *   Vanilla JavaScript (no frameworks)
 
-codeMermaid
+## 🚀 Getting Started
 
-```
-graph TD
-    A[Source .PDF/.TXT File] --> B{Stage 1: Text Preparation};
-    B --> C[Numbered blockX.txt Files];
-    C --> D{Stage 2: Text-to-Speech};
-    D --> E[Numbered blockX.wav Files];
-    E --> F{Stage 3: Audio Concatenation};
-    F --> G[Single whole_audiobook.wav];
-    G & H[Background video.mp4] --> I{Stage 4: Video Assembly};
-    I --> J[Final video_final.mp4];
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style J fill:#ccf,stroke:#333,stroke-width:2px
-```
-
-#### Stage 1: Text Preparation (process_text.py)
-
-This script acts as the preprocessor. It finds your source document, reads all the text, and prepares it for the Text-to-Speech engine.
-
--   **Input:** A single .pdf or .txt file located in the text-input folder.
-
-    -   **Process:**
-
-    -   Extracts all text content from the source file.
-
-        -   Cleans up line breaks and whitespace.
-
-        -   Splits the entire text into smaller blocks (e.g., 4000 characters each). The splitting logic is sentence-aware, meaning it will not cut a sentence in half.
-
-    -   **Output:** A series of numbered text files (block1.txt, block2.txt, etc.) in the audio-input folder.
-
-#### Stage 2: Text-to-Speech Generation (generate_audio.py)
-
-This is the core engine of the project. It takes the text blocks and converts them into individual audio files using the Gemini API.
-
--   **Input:** The blockX.txt files from the audio-input folder.
-
-    -   **Process:**
-
-    -   It creates a pool of asynchronous "workers" to process files concurrently.
-
-        -   It manages a list of your Gemini API keys. When one key hits its rate limit (quota exhausted), the script automatically switches to the next available key.
-
-        -   A semaphore limits the number of simultaneous API requests to avoid overwhelming the service.
-
-        -   Each text block is sent to the Gemini TTS API and the resulting audio is saved as a .wav file.
-
-    -   **Output:** A series of numbered audio files (block1.wav, block2.wav, etc.) in the audio-output folder. Processed text files are moved to audio-input/converted.
-
-#### Stage 3: Audio Concatenation (concatenate_audio.py)
-
-This script assembles the individual audio snippets into a single, cohesive audiobook file.
-
--   **Input:** The blockX.wav files from the audio-output folder.
-
-    -   **Process:**
-
-    -   Numerically sorts all the .wav files to ensure they are in the correct order.
-
-        -   Adds a short, configurable pause (e.g., 350ms) between each audio clip to create natural breaks.
-
-        -   Concatenates all clips and pauses into one long audio file.
-
-    -   **Output:** A single whole_audiobook.wav file saved in the audio-output/whole-audiobook subfolder.
-
-#### Stage 4: Video Assembly (create_video.py)
-
-The final stage takes your complete audiobook and a background video, combining them into a final product.
-
--   **Input:**
-
-    -   A background video file (e.g., video.mp4) in the media folder.
-
-    -  The final audiobook file (e.g., audio.mp3 or .wav) in the media folder. (You will need to move the file from Stage 3 here).
-
-    -   **Process:**
-
-    -   Loops the background video seamlessly using a crossfade effect until it reaches a target duration (e.g., 1 hour).
-
-        -   Attaches the audiobook to the looped video, replacing any original audio.
-
-    -   **Output:** A final video_final.mp4 file in the media folder.
-
-Getting Started
----------------
-
-Follow these steps to set up and run the project.
+Follow these instructions to get a copy of the project up and running on your local machine.
 
 ### Prerequisites
 
--   Python 3.8 or higher
+*   Python 3.9 or higher.
+*   Git (for cloning the repository).
 
-- pip for installing packages
-- git (optional, for cloning the repository)
+### Installation & Setup
 
-### 1\. Project Structure
+1.  **Clone the repository:**
+    ```bash
+    git clone https://https://github.com/RafaelCamargo97/gen-audio-maker.git
+    cd gen-audio-maker
+    ```
 
-Your project must follow this folder structure for the scripts to work correctly:
+2.  **Create and activate a virtual environment:**
+    *   **Windows:**
+        ```bash
+        python -m venv .venv
+        .\.venv\Scripts\activate
+        ```
+    *   **macOS / Linux:**
+        ```bash
+        python3 -m venv .venv
+        source .venv/bin/activate
+        ```
 
-codeCode
+3.  **Install the required packages:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Configure your environment variables:**
+    *   Make a copy of the example environment file:
+        ```bash
+        cp .env.example .env
+        ```
+    *   Open the `.env` file and add your credentials and settings.
+
+### Environment Variables (`.env`)
+
+This file is crucial for the application to run.
+
+*   `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.: Your Google AI Studio API keys. You must have at least one. The application will use them in numerical order.
+*   `GEMINI_TTS_MODEL`: The model for Text-to-Speech. Defaults to `"models/text-to-speech"`.
+*   `GEMINI_TEXT_MODEL`: The model for text generation. We recommend `"gemini-1.5-pro-latest"`.
+*   `MAX_CONCURRENT_REQUESTS`: The number of simultaneous API requests for audio generation. A value between 5 and 10 is recommended.
+*   `API_REQUEST_LIMIT`: The maximum number of API calls allowed in the time window (e.g., 30).
+*   `API_REQUEST_WINDOW_SECONDS`: The time window for the rate limit in seconds (e.g., 60).
+
+### Running the Application
+
+1.  With your virtual environment activated, start the server from the root directory:
+    ```bash
+    uvicorn app.main:app --reload
+    ```
+2.  Open your web browser and navigate to `http://127.0.0.1:8000`.
+
+## 📂 Project Structure
+
+The project is organized with a clear separation of concerns:
 
 ```
-project-folder/
+/gen-audio-maker/
+├── app/                  # Main application source code
+│   ├── static/           # CSS and JavaScript files
+│   ├── templates/        # HTML templates
+│   ├── api_manager.py    # Manages Gemini API keys and errors
+│   ├── gemini_client.py  # Handles text generation with memory
+│   ├── main.py           # FastAPI server, endpoints, and UI serving
+│   └── ...               # Other processing modules
+├── assets/
+│   └── fonts/            # Contains the DejaVuSans.ttf font for PDF generation
 ├── data/
-│   ├── text-input/
-│   │   └── my_book.pdf
-│   ├── audio-input/            # STAGE 1 OUTPUT / STAGE 2 INPUT
-│   └── audio-output/           # STAGE 2 OUTPUT / STAGE 3 INPUT
-│       └── whole-audiobook/    # STAGE 3 OUTPUT
-├── media/
-│    ├── video.mp4           # Your background video for Stage 4
-│    └── audio.mp3           # Your final audiobook for Stage 4
-├── src/
-│   ├── __init__.py                  # Good practice, can be empty
-│   ├── gemini_audiobook_creator.py      # Renamed for clarity
-│   ├── pdf_cleaner.py
-│   ├── pdf_handler.py
-│   ├── wav_handler.py
-│   └── video_loop.py
-│
-├── .gitignore
-├── README.md
-└── requirements.txt
+│   └── job-data/         # Dynamically created folders for each job
+├── prompts/              # Text files containing prompts for the AI
+├── .env                  # Your local environment variables (ignored by git)
+├── .env.example          # Template for the .env file
+└── requirements.txt      # Python dependencies
 ```
 
-### 2\. Install Dependencies
+## ⚙️ How It Works
 
-Install all the necessary Python libraries using the provided requirements.txt file.
+The application uses an asynchronous, non-blocking architecture.
 
-codeBash
+1.  The **Frontend** sends a job request (either audiobook or story) to the FastAPI **Backend**.
+2.  The Backend creates a unique Job ID, saves any necessary files, and immediately returns the `job_id` to the frontend.
+3.  The actual processing is handed off to a **Background Task**, ensuring the server remains responsive.
+4.  The Frontend uses the `job_id` to **Poll** a `/status/{job_id}` endpoint every few seconds.
+5.  The Backend's **JobManager** updates the job's status and progress percentage as the background task completes its steps.
+6.  When the frontend receives a "complete" status, it displays a download link pointing to `/download/{job_id}`.
 
-```
-pip install -r requirements.txt
-```
-This will install google-generativeai, pydub, moviepy, and PyPDF2.
+## 🎯 Project Scope & Local Execution
 
-### 3\. Configure API Keys
+This application was developed as a high-fidelity **Proof of Concept (PoC)** to demonstrate the end-to-end workflow of generating AI content. It is designed and optimized for **local execution** on a personal machine.
 
-The Text-to-Speech script requires Google Gemini API keys.
+Several architectural choices were made for simplicity and rapid development, which are important to understand:
 
--   Obtain one or more API keys from Google AI Studio [Google AI Studio](https://www.google.com/url?sa=E&q=https%3A%2F%2Faistudio.google.com%2Fapp%2Fapikey).
+*   **In-Memory Job Management:** The `JobManager` stores all job statuses and progress in a simple Python dictionary. This data is volatile and will be **lost if the server restarts**.
+*   **Built-in Background Tasks:** The application uses FastAPI's native `BackgroundTasks`. This is an excellent tool for in-process concurrency but is not as robust as a dedicated task queue. If the server process is terminated, any running tasks are lost.
+*   **Monolithic Structure:** The same FastAPI server is responsible for both serving the frontend (HTML/JS) and handling the backend API logic.
 
-    -   Set them as environment variables. This is the most secure way to handle keys. The script is configured to look for variables named GEMINI_API_KEY, GEMINI_API_KEY2, GEMINI_API_KEY3, etc.
+As such, it is perfectly suited for personal use, demonstration, and as a strong foundation for a more complex, production-ready system.
 
-    **On Windows (Command Prompt):**
+## 🏛️ Current Architecture (Local Execution)
 
-    codeCmd
+The application follows a monolithic client-server architecture with asynchronous background processing for long-running tasks. The entire process is orchestrated by a single FastAPI server.
 
-    ```
-    set GEMINI_API_KEY="YOUR_FIRST_API_KEY"
-    set GEMINI_API_KEY2="YOUR_SECOND_API_KEY"
-    ```
-
-    **On macOS/Linux:**
-
-    codeBash
-
-    ```
-    export GEMINI_API_KEY="YOUR_FIRST_API_KEY"
-    export GEMINI_API_KEY2="YOUR_SECOND_API_KEY"
-    ```
-
-### 4\. Running the Pipeline
-
-Execute the scripts one by one in the correct order.
-
-**Step 1: Prepare the Text**\
-Place your .pdf or .txt file in the text-input folder and run:
-
-codeBash
+### System Design Diagram
 
 ```
-python process_text.py
+[User's Browser] <------------------------------------+
+     |                                                 |
+     | 1. GET / (Request for Web Page)                 | 8. Polling: GET /status/{job_id}
+     |                                                 |
+     v                                                 |
++-------------------------------------------------------------+
+|                      FastAPI Server (Uvicorn)                 |
+|                                                             |
+|   +---------------------+      +------------------------+   |
+|   |  Frontend Serving   |----->|   API Endpoints        |   |
+|   | (StaticFiles, Jinja2)|      | (/create-job, /status) |   |
+|   +---------------------+      +----------+-------------+   |
+|       ^                                   | 2. POST /create-job
+|       | 7. Return HTML/JS/CSS             |    (Returns job_id immediately)
+|       |                                   |
+|       |                                   v
+|       +---------------------------+  +------------------------+
+|       |  In-Memory Job Manager    |< |  BackgroundTasks Module|
+|       |  (job_statuses dict)      |  | (Runs conversion tasks |
+|       |  (Thread-safe with Lock)  |  |  after response is sent)|
+|       +---------------------------+  +----+-------------------+
+|               ^   ^                        | 3. Calls processor
+|               |   |                        v
+|               |   +-----------------+------+------------------+
+|               | 6. Read Status      |  Processing Modules     |
+|               |                     |                         |
+|               +---------------------+ (pdf_handler, gemini_*, |
+|                 5. Update Status    |  story_creator, etc.)   |
+|                                     +----------+--------------+
+|                                                | 4. Writes files
+|                                                v
+|                                     +------------------------+
+|                                     |      File System       |
+|                                     | (data/job-data/{job_id})|
+|                                     +------------------------+
++-------------------------------------------------------------+
+
 ```
 
-This will create blockX.txt files in audio-input.
+### Component Breakdown
 
-**Step 2: Generate the Audio**\
-Run the main TTS script. This may take a long time depending on the amount of text.
+1.  **Frontend (Client):** A vanilla JavaScript application running in the user's browser. It handles file uploads, user input, and makes API calls. It uses a **polling** mechanism to repeatedly ask the server for the status of a job.
 
-codeBash
+2.  **FastAPI Server:** The core of the application.
+    *   **Frontend Serving:** It serves the initial `index.html` via Jinja2 templates and all static assets (`.css`, `.js`) via `StaticFiles`.
+    *   **API Endpoints:** It exposes endpoints to create new jobs (`/create-job`, `/create-story-job`), check job status (`/status/{job_id}`), and download the final product (`/download/{job_id}`).
 
-```
-python generate_audio.py
-```
+3.  **Job Processing (`BackgroundTasks`):** When a new job is created, FastAPI immediately returns a `job_id` and schedules the long-running task (e.g., `run_conversion_pipeline`) to run in the background. This "fire and forget" model keeps the API responsive.
 
-This will create blockX.wav files in audio-output.
+4.  **State Management (`JobManager`):** A simple, in-memory Python class that holds a dictionary of all job statuses. It is the single source of truth for job progress. A `threading.Lock` is used to prevent race conditions, ensuring that concurrent progress updates from audio generation workers are handled safely.
 
-**Step 3: Concatenate the Audio Clips**
-
-codeBash
-
-```
-python concatenate_audio.py
+5.  **File System:** All data related to a specific job (the uploaded PDF, intermediate text blocks, final audio/PDF files) is stored in a uniquely named folder within `data/job-data/`, using the `job_id` as the folder name. This isolates each job's data.
 ```
 
-This will create whole_audiobook.wav in audio-output/whole-audiobook.
+---
 
-**Step 4: Assemble the Final Video**
+### **3. New Section: Future Improvement (AWS Placeholder)**
 
--   **Move the audiobook:** Copy whole_audiobook.wav from its folder into the media folder. You can rename it to audio.mp3 or audio.wav.
+This section is intentionally left as a placeholder, exactly as you requested, setting the stage for future planning.
 
-    -   **Add background video:**Place your desired background video (e.g., video.mp4) in the media folder.
+```markdown
+## ☁️ Future Improvement: AWS Production Architecture
 
-    -   Run the final script:
+While the current design is optimized for local execution, the application is built with modular components that make it a strong candidate for a scalable, cloud-native architecture on AWS. A potential system design for this would aim to address the limitations of the PoC (e.g., in-memory state, in-process task handling) by leveraging managed cloud services.
 
-    codeBash
-
-    ```
-    python create_video.py
-    ```
-
-This will create video_final.mp4 in the media folder.
-
-Configuration
--------------
-
-You can customize the behavior by editing the configuration variables at the top of each script:
-
--   **process_text.py**:
-
-    -   CHARACTER_LIMIT: Max characters per text block. Gemini has limits, so 4000-4500 is a safe range.
-
-    -   **generate_audio.py**:
-
-    -   MAX_CONCURRENT_REQUESTS: Number of parallel API calls. Be mindful of API rate limits. 3 to 5 is a good starting point.
-
-        -   STYLE_INSTRUCTION: Add a string to prepend a reading style instruction to every text block (e.g., "Read in a calm, deep voice.").
-
-    -   **concatenate_audio.py**:
-
-    -   pause = AudioSegment.silent(duration=350): Change 350 to your desired pause length in milliseconds between sentences.
-
-    -   **create_video.py**:
-
-    -   LOOP_DURATION_SECONDS: The total length of the final video in seconds (e.g.,3600 for 1 hour).
-
-        -   CROSSFADE_TIME: The duration of the fade effect between video/audio loops.
+*[Future AWS architecture diagram and detailed component explanation to be added here.]*

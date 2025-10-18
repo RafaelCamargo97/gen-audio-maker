@@ -14,6 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultMessage = document.getElementById('result-message');
     const spinner = document.getElementById('spinner');
 
+    const progressBarContainer = document.getElementById('progress-bar-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+
     let pollingInterval;
     let currentJobType = 'audiobook'; // To manage which form to reset
 
@@ -121,7 +125,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Could not fetch status.');
             }
             const data = await response.json();
+            if (data.status === 'processing' && data.progress !== undefined && data.progress >= 0) {
+                progressBarContainer.style.display = 'block';
+                const progressInt = Math.floor(data.progress);
+                progressBar.style.width = `${progressInt}%`;
+                progressText.textContent = `${progressInt}%`;
+            } else {
+                progressBarContainer.style.display = 'none';
+            }
 
+            statusText.textContent = data.message;
+
+            if (data.status === 'complete') {
+                progressBar.style.width = '100%';
+                progressText.textContent = '100%';
+                clearInterval(pollingInterval);
+                setTimeout(() => showSuccess(jobId, data.message), 500);
+            } else if (data.status === 'error') {
+                clearInterval(pollingInterval);
+                showError(data.message);
+            }
             statusText.textContent = data.message;
 
             if (data.status === 'complete') {
@@ -154,6 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText.classList.remove('error-message');
             spinner.classList.remove('hidden');
             statusText.textContent = 'Submitting job...';
+            progressBarContainer.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
         } else {
             audiobookBtn.textContent = 'Create Audiobook';
             storyBtn.textContent = 'Generate Story';
