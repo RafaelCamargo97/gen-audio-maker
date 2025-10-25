@@ -72,7 +72,7 @@ The local application follows a monolithic client-server architecture with async
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://your-repository-url/gen-audio-maker.git
+    git clone https://github.com/RafaelCamargo97/gen-audio-maker.git
     cd gen-audio-maker
     ```
 
