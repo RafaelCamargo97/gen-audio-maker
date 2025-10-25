@@ -145,7 +145,7 @@ This diagram illustrates the high-level interaction between the user, the fronte
 
 This is an event-driven microservices architecture that handles the entire content creation pipeline asynchronously.
 
-![Fluxo da API /create-job - Parte 1](assets/screenshots/img4.png)
+![/create-job](assets/screenshots/img4.png)
 
 1.  **Initiate Job:** The frontend calls the `/create-job` endpoint on **API Gateway**.
 2.  **Presigned URL Generation:** The **ECS API Service** generates a secure, temporary upload link (a presigned URL) for S3 and creates an initial job entry in **Redis**.
@@ -166,12 +166,12 @@ This is an event-driven microservices architecture that handles the entire conte
 
 **Status Check (`/status`)**
 
-![Fluxo da API /status](assets/screenshots/img5.png)
+![/status](assets/screenshots/img5.png)
 
 The frontend periodically polls the `/status` endpoint. The ECS API service handles this request by simply reading the current job status directly from the **Redis** cache and returning it. This is a lightweight and fast operation.
 
 **File Download (`/download`)**
 
-![Fluxo da API /download](assets/screenshots/img6.png)
+![download](assets/screenshots/img6.png)
 
 When a job is complete, the frontend calls the `/download` endpoint. The ECS API service does **not** stream the file itself. Instead, it generates a secure, temporary S3 presigned URL for reading the object and returns this URL to the frontend. The browser then downloads the file directly from S3, which is more efficient and secure.
