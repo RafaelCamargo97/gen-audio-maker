@@ -1,8 +1,19 @@
+# Web Framework and Server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Google Gemini SDK
 google-generativeai
-pydub
-moviepy==1.0.3
+
+# PDF Handling
 PyPDF2
-python-dotenv
-audioop-lts
-jinja2
 fpdf2
+
+# Audio Handling
+pydub
+moviepy==1.0.3 #Optional
+
+# Environment & Templating
+python-dotenv
+Jinja2

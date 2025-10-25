@@ -2,21 +2,22 @@
 
 This web application leverages the power of Google's Gemini API to serve as a versatile content creation tool. It can transform PDF documents into full-length audiobooks and generate original, multi-chapter stories from a simple user prompt. The application is built with a responsive FastAPI backend and a dynamic vanilla JavaScript frontend.
 
-![Screenshot of the application's UI](placeholder.png)
+![img.png](img.png)
+![img_1.png](img_1.png)
 
 ## ✨ Features
 
 *   **PDF to Audiobook Conversion:**
     *   Upload any PDF file.
-    *   Automatically splits text into intelligent blocks for high-quality TTS.
-    *   Generates audio for each block concurrently for speed.
-    *   Combines audio blocks into a single downloadable `.wav` file.
+    *   Automatically splits text into intelligent blocks for high-quality Text-to-Speech (TTS).
+    *   Generates audio for each block concurrently for speed, respecting API rate limits.
+    *   Combines audio blocks with pauses into a single downloadable `.wav` file.
 *   **AI Story Generation:**
     *   Provide a title, summary, and chapter details to generate a unique story.
     *   Uses a conversational AI session to maintain context and memory throughout the writing process.
-    *   Generates a clean, downloadable `.pdf` of the final story.
+    *   Generates a clean, downloadable `.pdf` of the final story using a Unicode-capable font for special characters.
 *   **Dynamic User Interface:**
-    *   Clean, tabbed interface to switch between tools.
+    *   Clean, tabbed interface to switch between the Audiobook and Story Creator tools.
     *   Real-time progress bar with percentage updates for long-running jobs.
     *   Asynchronous job processing—the UI remains responsive while the backend works.
 *   **Robust Backend:**
@@ -24,24 +25,44 @@ This web application leverages the power of Google's Gemini API to serve as a ve
     *   Manages multiple Gemini API keys, automatically switching when a quota is exhausted.
     *   Built-in rate limiting to respect API usage policies.
 
+## 🎯 Project Scope & Local Execution
+
+This application was developed as a high-fidelity **Proof of Concept (PoC)** to demonstrate the end-to-end workflow of generating AI content. It is designed and optimized for **local execution** on a personal machine.
+
+Several architectural choices were made for simplicity and rapid development, which are important to understand:
+
+*   **In-Memory Job Management:** The `JobManager` stores all job statuses and progress in a simple Python dictionary. This data is volatile and will be **lost if the server restarts**.
+*   **Built-in Background Tasks:** The application uses FastAPI's native `BackgroundTasks`. This is an excellent tool for in-process concurrency but is not as robust as a dedicated task queue. If the server process is terminated, any running tasks are lost.
+*   **Monolithic Structure:** The same FastAPI server is responsible for both serving the frontend (HTML/JS) and handling the backend API logic.
+
+As such, it is perfectly suited for personal use, demonstration, and as a strong foundation for a more complex, production-ready system.
+
+## 🏛️ Local Architecture
+
+The local application follows a monolithic client-server architecture with asynchronous background processing for long-running tasks.
+
+*   **Frontend (Client):** A vanilla JavaScript application in the browser handles user input and polls the backend for job status.
+*   **FastAPI Server:** A single server process that serves the static HTML/JS/CSS files and exposes the API endpoints.
+*   **BackgroundTasks:** When a job is created, the API returns a `job_id` immediately, and the long-running task is executed in the background of the same process.
+*   **JobManager:** An in-memory Python dictionary, protected by a thread lock, acts as the central state store for job progress.
+*   **File System:** All job-related files are stored in a unique folder under `data/job-data/`.
+
 ## 🛠️ Technology Stack
 
 *   **Backend:**
     *   Python 3.9+
-    *   FastAPI (for the web framework and background tasks)
-    *   Uvicorn (as the ASGI server)
+    *   FastAPI & Uvicorn
     *   Google Generative AI SDK (`google-generativeai`)
     *   PyPDF2 (for PDF text extraction)
     *   Pydub (for audio manipulation)
     *   FPDF2 (for PDF generation)
+    *   Jinja2 (for HTML templating)
 *   **Frontend:**
     *   HTML5
     *   CSS3
     *   Vanilla JavaScript (no frameworks)
 
-## 🚀 Getting Started
-
-Follow these instructions to get a copy of the project up and running on your local machine.
+## 🚀 Getting Started (Local Setup)
 
 ### Prerequisites
 
@@ -52,7 +73,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://https://github.com/RafaelCamargo97/gen-audio-maker.git
+    git clone https://your-repository-url/gen-audio-maker.git
     cd gen-audio-maker
     ```
 
@@ -74,22 +95,27 @@ Follow these instructions to get a copy of the project up and running on your lo
     ```
 
 4.  **Configure your environment variables:**
-    *   Make a copy of the example environment file:
+    *   Create a `.env` file in the project root. You can copy the template:
         ```bash
+        # For Windows
+        copy .env.example .env
+        # For macOS/Linux
         cp .env.example .env
         ```
     *   Open the `.env` file and add your credentials and settings.
 
+### **⚠️ Important Note on Local Storage**
+
+This application stores all generated files locally on your machine. For every job you run—whether an audiobook or a story—a new folder with a unique ID is created inside the `data/job-data/` directory. This folder contains the uploaded PDF, all intermediate text and audio blocks, and the final output file. Over time, this directory can grow quite large. It is recommended to periodically **clear the contents of the `data/job-data/` folder** to free up disk space.
+
 ### Environment Variables (`.env`)
 
-This file is crucial for the application to run.
-
-*   `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.: Your Google AI Studio API keys. You must have at least one. The application will use them in numerical order.
+*   `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.: Your Google AI Studio API keys. You must have at least one.
 *   `GEMINI_TTS_MODEL`: The model for Text-to-Speech. Defaults to `"models/text-to-speech"`.
-*   `GEMINI_TEXT_MODEL`: The model for text generation. We recommend `"gemini-1.5-pro-latest"`.
-*   `MAX_CONCURRENT_REQUESTS`: The number of simultaneous API requests for audio generation. A value between 5 and 10 is recommended.
-*   `API_REQUEST_LIMIT`: The maximum number of API calls allowed in the time window (e.g., 30).
-*   `API_REQUEST_WINDOW_SECONDS`: The time window for the rate limit in seconds (e.g., 60).
+*   `GEMINI_TEXT_MODEL`: The model for text generation. Recommended: `"gemini-1.5-pro-latest"`.
+*   `MAX_CONCURRENT_REQUESTS`: Number of simultaneous API requests for audio generation (e.g., `5`).
+*   `API_REQUEST_LIMIT`: Max API calls allowed in the time window (e.g., `30`).
+*   `API_REQUEST_WINDOW_SECONDS`: The time window for the rate limit in seconds (e.g., `60`).
 
 ### Running the Application
 
@@ -99,122 +125,53 @@ This file is crucial for the application to run.
     ```
 2.  Open your web browser and navigate to `http://127.0.0.1:8000`.
 
-## 📂 Project Structure
+## ☁️ Future Vision: Scalable AWS Production Architecture
 
-The project is organized with a clear separation of concerns:
+The following is a high-level system design for migrating this application to a scalable, resilient, and cost-effective cloud architecture on AWS. This design addresses the limitations of the local PoC by decoupling services and leveraging managed cloud infrastructure.
 
-```
-/gen-audio-maker/
-├── app/                  # Main application source code
-│   ├── static/           # CSS and JavaScript files
-│   ├── templates/        # HTML templates
-│   ├── api_manager.py    # Manages Gemini API keys and errors
-│   ├── gemini_client.py  # Handles text generation with memory
-│   ├── main.py           # FastAPI server, endpoints, and UI serving
-│   └── ...               # Other processing modules
-├── assets/
-│   └── fonts/            # Contains the DejaVuSans.ttf font for PDF generation
-├── data/
-│   └── job-data/         # Dynamically created folders for each job
-├── prompts/              # Text files containing prompts for the AI
-├── .env                  # Your local environment variables (ignored by git)
-├── .env.example          # Template for the .env file
-└── requirements.txt      # Python dependencies
-```
+### Macro Architecture
 
-## ⚙️ How It Works
+This diagram illustrates the high-level interaction between the user, the frontend, and the backend services. The frontend and backend are completely decoupled.
 
-The application uses an asynchronous, non-blocking architecture.
+![img_2.png](img_2.png)
 
-1.  The **Frontend** sends a job request (either audiobook or story) to the FastAPI **Backend**.
-2.  The Backend creates a unique Job ID, saves any necessary files, and immediately returns the `job_id` to the frontend.
-3.  The actual processing is handed off to a **Background Task**, ensuring the server remains responsive.
-4.  The Frontend uses the `job_id` to **Poll** a `/status/{job_id}` endpoint every few seconds.
-5.  The Backend's **JobManager** updates the job's status and progress percentage as the background task completes its steps.
-6.  When the frontend receives a "complete" status, it displays a download link pointing to `/download/{job_id}`.
-
-## 🎯 Project Scope & Local Execution
-
-This application was developed as a high-fidelity **Proof of Concept (PoC)** to demonstrate the end-to-end workflow of generating AI content. It is designed and optimized for **local execution** on a personal machine.
-
-Several architectural choices were made for simplicity and rapid development, which are important to understand:
-
-*   **In-Memory Job Management:** The `JobManager` stores all job statuses and progress in a simple Python dictionary. This data is volatile and will be **lost if the server restarts**.
-*   **Built-in Background Tasks:** The application uses FastAPI's native `BackgroundTasks`. This is an excellent tool for in-process concurrency but is not as robust as a dedicated task queue. If the server process is terminated, any running tasks are lost.
-*   **Monolithic Structure:** The same FastAPI server is responsible for both serving the frontend (HTML/JS) and handling the backend API logic.
-
-As such, it is perfectly suited for personal use, demonstration, and as a strong foundation for a more complex, production-ready system.
-
-## 🏛️ Current Architecture (Local Execution)
-
-The application follows a monolithic client-server architecture with asynchronous background processing for long-running tasks. The entire process is orchestrated by a single FastAPI server.
-
-### System Design Diagram
-
-```
-[User's Browser] <------------------------------------+
-     |                                                 |
-     | 1. GET / (Request for Web Page)                 | 8. Polling: GET /status/{job_id}
-     |                                                 |
-     v                                                 |
-+-------------------------------------------------------------+
-|                      FastAPI Server (Uvicorn)                 |
-|                                                             |
-|   +---------------------+      +------------------------+   |
-|   |  Frontend Serving   |----->|   API Endpoints        |   |
-|   | (StaticFiles, Jinja2)|      | (/create-job, /status) |   |
-|   +---------------------+      +----------+-------------+   |
-|       ^                                   | 2. POST /create-job
-|       | 7. Return HTML/JS/CSS             |    (Returns job_id immediately)
-|       |                                   |
-|       |                                   v
-|       +---------------------------+  +------------------------+
-|       |  In-Memory Job Manager    |< |  BackgroundTasks Module|
-|       |  (job_statuses dict)      |  | (Runs conversion tasks |
-|       |  (Thread-safe with Lock)  |  |  after response is sent)|
-|       +---------------------------+  +----+-------------------+
-|               ^   ^                        | 3. Calls processor
-|               |   |                        v
-|               |   +-----------------+------+------------------+
-|               | 6. Read Status      |  Processing Modules     |
-|               |                     |                         |
-|               +---------------------+ (pdf_handler, gemini_*, |
-|                 5. Update Status    |  story_creator, etc.)   |
-|                                     +----------+--------------+
-|                                                | 4. Writes files
-|                                                v
-|                                     +------------------------+
-|                                     |      File System       |
-|                                     | (data/job-data/{job_id})|
-|                                     +------------------------+
-+-------------------------------------------------------------+
-
-```
-
-### Component Breakdown
-
-1.  **Frontend (Client):** A vanilla JavaScript application running in the user's browser. It handles file uploads, user input, and makes API calls. It uses a **polling** mechanism to repeatedly ask the server for the status of a job.
-
-2.  **FastAPI Server:** The core of the application.
-    *   **Frontend Serving:** It serves the initial `index.html` via Jinja2 templates and all static assets (`.css`, `.js`) via `StaticFiles`.
-    *   **API Endpoints:** It exposes endpoints to create new jobs (`/create-job`, `/create-story-job`), check job status (`/status/{job_id}`), and download the final product (`/download/{job_id}`).
-
-3.  **Job Processing (`BackgroundTasks`):** When a new job is created, FastAPI immediately returns a `job_id` and schedules the long-running task (e.g., `run_conversion_pipeline`) to run in the background. This "fire and forget" model keeps the API responsive.
-
-4.  **State Management (`JobManager`):** A simple, in-memory Python class that holds a dictionary of all job statuses. It is the single source of truth for job progress. A `threading.Lock` is used to prevent race conditions, ensuring that concurrent progress updates from audio generation workers are handled safely.
-
-5.  **File System:** All data related to a specific job (the uploaded PDF, intermediate text blocks, final audio/PDF files) is stored in a uniquely named folder within `data/job-data/`, using the `job_id` as the folder name. This isolates each job's data.
-```
+1.  **DNS Lookup (Route 53):** The user's request for the domain is resolved by Route 53.
+2.  **Frontend Delivery (S3 & CloudFront):** The static website (HTML, JS, CSS) is hosted in an S3 bucket and delivered globally with low latency via the CloudFront CDN. An ACM certificate on CloudFront provides HTTPS.
+3.  **Backend API Calls:** The JavaScript application makes API calls to a separate backend endpoint, which is managed by API Gateway.
 
 ---
 
-### **3. New Section: Future Improvement (AWS Placeholder)**
+### Detailed Job Processing Flow (`/create-job`)
 
-This section is intentionally left as a placeholder, exactly as you requested, setting the stage for future planning.
+This is an event-driven microservices architecture that handles the entire content creation pipeline asynchronously.
 
-```markdown
-## ☁️ Future Improvement: AWS Production Architecture
+![img_3.png](img_3.png)
 
-While the current design is optimized for local execution, the application is built with modular components that make it a strong candidate for a scalable, cloud-native architecture on AWS. A potential system design for this would aim to address the limitations of the PoC (e.g., in-memory state, in-process task handling) by leveraging managed cloud services.
+1.  **Initiate Job:** The frontend calls the `/create-job` endpoint on **API Gateway**.
+2.  **Presigned URL Generation:** The **ECS API Service** generates a secure, temporary upload link (a presigned URL) for S3 and creates an initial job entry in **Redis**.
+3.  **Return URL:** The API immediately returns the `job_id` and the `presignedUrl` to the frontend.
+4.  **Direct S3 Upload:** The frontend uploads the PDF file directly to S3 using the presigned URL, offloading the work from the ECS service.
+5.  **Trigger Event:** Upon successful upload, an S3 event notification sends a message to an **SQS queue**.
+6.  **Text Splitting Microservice:** An **AWS Lambda** function is triggered by the SQS message. It downloads the PDF, splits it into text blocks, and saves them back to S3.
+7.  **Fan-Out:** This Lambda then places multiple messages on a second SQS queue—one for each text block (or for batches of blocks). This is the "fan-out" step.
+8.  **TTS Microservice (ECS):** A containerized **ECS Service**, configured with an Auto Scaling Group, polls the second SQS queue. Multiple containers work in parallel, each processing a different text block.
+9.  **API Key Management:** Before processing, each ECS task "checks out" an available API key from a dedicated **API Key Manager Lambda**, which uses Redis to ensure no two tasks use the same key simultaneously.
+10. **Fan-In:** As each ECS task finishes its audio block, it decrements a counter in Redis. The *last* worker to finish (when the counter hits zero) is responsible for triggering the next step.
+11. **Concatenation Microservice:** The final worker sends a message to a third SQS queue, which triggers a final **Lambda** to concatenate all the audio files into one.
+12. **Finalize:** The final Lambda saves the complete audiobook to S3 and updates the job status in Redis to "complete".
 
-*[Future AWS architecture diagram and detailed component explanation to be added here.]*
+---
+
+### Status and Download Flows
+
+**Status Check (`/status`)**
+
+![img_4.png](img_4.png)
+
+The frontend periodically polls the `/status` endpoint. The ECS API service handles this request by simply reading the current job status directly from the **Redis** cache and returning it. This is a lightweight and fast operation.
+
+**File Download (`/download`)**
+
+![img_5.png](img_5.png)
+
+When a job is complete, the frontend calls the `/download` endpoint. The ECS API service does **not** stream the file itself. Instead, it generates a secure, temporary S3 presigned URL for reading the object and returns this URL to the frontend. The browser then downloads the file directly from S3, which is more efficient and secure.
