@@ -172,6 +172,6 @@ The frontend periodically polls the `/status` endpoint. The ECS API service hand
 
 **File Download (`/download`)**
 
-![download](assets/screenshots/img6.png)
+![image6](assets/screenshots/img6.png)
 
 When a job is complete, the frontend calls the `/download` endpoint. The ECS API service does **not** stream the file itself. Instead, it generates a secure, temporary S3 presigned URL for reading the object and returns this URL to the frontend. The browser then downloads the file directly from S3, which is more efficient and secure.
