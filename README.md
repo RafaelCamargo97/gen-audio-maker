@@ -2,8 +2,8 @@
 
 This web application leverages the power of Google's Gemini API to serve as a versatile content creation tool. It can transform PDF documents into full-length audiobooks and generate original, multi-chapter stories from a simple user prompt. The application is built with a responsive FastAPI backend and a dynamic vanilla JavaScript frontend.
 
-![Interface da Aplicação](assets/screenshots/img.png)
-![Interface da Aplicação2](assets/screenshots/img_1.png)
+![Interface da Aplicação](assets/screenshots/img1.png)
+![Interface da Aplicação2](assets/screenshots/img2.png)
 
 ## ✨ Features
 
@@ -133,7 +133,7 @@ The following is a high-level system design for migrating this application to a 
 
 This diagram illustrates the high-level interaction between the user, the frontend, and the backend services. The frontend and backend are completely decoupled.
 
-![Fluxo Macro da Arquitetura](assets/screenshots/img_2.png)
+![Fluxo Macro da Arquitetura](assets/screenshots/img3.png)
 
 1.  **DNS Lookup (Route 53):** The user's request for the domain is resolved by Route 53.
 2.  **Frontend Delivery (S3 & CloudFront):** The static website (HTML, JS, CSS) is hosted in an S3 bucket and delivered globally with low latency via the CloudFront CDN. An ACM certificate on CloudFront provides HTTPS.
@@ -145,7 +145,7 @@ This diagram illustrates the high-level interaction between the user, the fronte
 
 This is an event-driven microservices architecture that handles the entire content creation pipeline asynchronously.
 
-![Fluxo da API /create-job - Parte 1](assets/screenshots/img_3.png)
+![Fluxo da API /create-job - Parte 1](assets/screenshots/img4.png)
 
 1.  **Initiate Job:** The frontend calls the `/create-job` endpoint on **API Gateway**.
 2.  **Presigned URL Generation:** The **ECS API Service** generates a secure, temporary upload link (a presigned URL) for S3 and creates an initial job entry in **Redis**.
@@ -166,12 +166,12 @@ This is an event-driven microservices architecture that handles the entire conte
 
 **Status Check (`/status`)**
 
-![Fluxo da API /status](assets/screenshots/img_4.png)
+![Fluxo da API /status](assets/screenshots/img5.png)
 
 The frontend periodically polls the `/status` endpoint. The ECS API service handles this request by simply reading the current job status directly from the **Redis** cache and returning it. This is a lightweight and fast operation.
 
 **File Download (`/download`)**
 
-![Fluxo da API /download](assets/screenshots/img_5.png)
+![Fluxo da API /download](assets/screenshots/img6.png)
 
 When a job is complete, the frontend calls the `/download` endpoint. The ECS API service does **not** stream the file itself. Instead, it generates a secure, temporary S3 presigned URL for reading the object and returns this URL to the frontend. The browser then downloads the file directly from S3, which is more efficient and secure.
