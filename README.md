@@ -142,7 +142,7 @@ This diagram illustrates the high-level interaction between the user, the fronte
 
 ### Detailed Job Processing Flow (`/create-job`)
 
-This is an event-driven microservices architecture that handles the entire content creation pipeline asynchronously.
+This is an event-driven microservices architecture that handles the entire content creation pipeline asynchronously
 
 ![/create-job](assets/screenshots/img4.png)
 
