@@ -3,6 +3,7 @@
 This web application leverages the power of Google's Gemini API to serve as a versatile content creation tool. It can transform PDF documents into full-length audiobooks and generate original, multi-chapter stories from a simple user prompt. The application is built with a responsive FastAPI backend and a dynamic vanilla JavaScript frontend.
 
 ![img.png](img.png)
+
 ![img_1.png](img_1.png)
 
 ## ✨ Features
